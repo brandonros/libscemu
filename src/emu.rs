@@ -3446,6 +3446,11 @@ impl Emu {
                               self.regs.get_r8w(), self.regs.get_r9w(), self.regs.get_r10w(), self.regs.get_r11w(), self.regs.get_r12w(), self.regs.get_r13w(), self.regs.get_r14w(),
                               self.regs.get_r15w(),
                             );
+                            println!(
+                                "\tcf: {:?} pf: {:?} af: {:?} zf: {:?} sf: {:?} tf: {:?} if: {:?} df: {:?} of: {:?} nt: {:?}",
+                                self.flags.f_cf, self.flags.f_pf, self.flags.f_af, self.flags.f_zf, self.flags.f_sf, self.flags.f_tf, self.flags.f_if, self.flags.f_df,
+                                self.flags.f_of, self.flags.f_nt
+                            );
                         } else {
                             // TODO: capture pre_op_registers 32-bits?
                             println!("\teax: 0x{:x} ebx: 0x{:x} ecx: 0x{:x} edx: 0x{:x} esi: 0x{:x} edi: 0x{:x} ebp: 0x{:x} esp: 0x{:x}",
@@ -5028,35 +5033,24 @@ impl Emu {
                 self.show_instruction(&self.colors.green, &ins);
                 assert!(ins.op_count() == 2);
 
-                let src = match self.get_operand_value(&ins, 1, true) {
+                let sz = self.get_operand_sz(&ins, 0);
+
+                let value0 = match self.get_operand_value(&ins, 0, true) {
                     Some(v) => v,
                     None => return,
                 };
 
-                if src == 0 {
-                    self.flags.f_zf = true;
-                    if self.cfg.verbose >= 1 {
-                        println!("/!\\ bsf src == 0 is undefined behavior");
-                    }
-                } else {
-                    let sz = self.get_operand_sz(&ins, 0);
-                    let mut bitpos: u8 = 0;
-                    let mut dest: u64 = 0;
+                let value1 = match self.get_operand_value(&ins, 1, true) {
+                    Some(v) => v,
+                    None => return,
+                };
 
-                    while bitpos < sz && get_bit!(src, bitpos) == 0 {
-                        dest += 1;
-                        bitpos += 1;
-                    }
+                let (result, new_flags) = inline::bsf(value0, value1, sz, self.flags.dump());
 
-                    if dest == 0 {
-                        self.flags.f_zf = true;
-                    } else {
-                        self.flags.f_zf = false;
-                    }
+                self.flags.load(new_flags);
 
-                    if !self.set_operand_value(&ins, 0, dest) {
-                        return;
-                    }
+                if !self.set_operand_value(&ins, 0, result) {
+                    return;
                 }
             }
 

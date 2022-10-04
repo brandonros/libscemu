@@ -913,13 +913,71 @@ pub fn bts(a:u64, b:u64) -> u64 {
 }
 
 
-pub fn bsf(a:u64, b:u64) -> u64 {
+pub fn bsf(a:u64, b:u64, size:u8, flags:u32) -> (u64, u32) {
+    let new_flags:u32;
     let mut r:u64 = a;
-    unsafe {   
-        asm!("bsf {}, {}", inout(reg) r, in(reg) b);
-    }   
-    
-    r
+    match size {
+        64 => {
+            unsafe {
+                asm!(
+                    "xor rax, rax",
+                    "mov eax, {:e}",
+                    "push rax",
+                    "popfq",
+                    "bsf {}, {}",
+                    "pushfq",
+                    "pop rax",
+                    "mov {:e}, eax",
+                    in(reg) flags,
+                    inout(reg) r, in(reg) b,
+                    out(reg) new_flags,
+                );
+            }
+        }
+        32 => {
+            let mut r32 = a as u32;
+            let b32 = b as u32;
+            unsafe {
+                asm!(
+                    "xor rax, rax",
+                    "mov eax, {:e}",
+                    "push rax",
+                    "popfq",
+                    "bsf {:e}, {:e}",
+                    "pushfq",
+                    "pop rax",
+                    "mov {:e}, eax",
+                    in(reg) flags,
+                    inout(reg) r32, in(reg) b32,
+                    out(reg) new_flags,
+                );
+            }
+            r = r32 as u64;
+        }
+        16 => {
+           let mut r16 = a as u16;
+            let b16 = b as u16;
+            unsafe {
+                asm!(
+                    "xor rax, rax",
+                    "mov eax, {:e}",
+                    "push rax",
+                    "popfq",
+                    "bsf {:x}, {:x}",
+                    "pushfq",
+                    "pop rax",
+                    "mov {:e}, eax",
+                    in(reg) flags,
+                    inout(reg) r16, in(reg) b16,
+                    out(reg) new_flags,
+                );
+            }
+            r = r16 as u64;
+        }
+        _ => panic!("weird size"),
+    }
+
+    (r, new_flags)
 }
 
 
