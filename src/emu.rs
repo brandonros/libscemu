@@ -2462,7 +2462,12 @@ impl Emu {
         loop {
             let cmd = con.cmd();
             match cmd.as_str() {
-                "q" => std::process::exit(1),
+                "q" => {
+                    if let Some(trace_file) = self.cfg.trace_file.as_mut() {
+                        trace_file.flush().expect("failed to flush trace file");
+                    }
+                    std::process::exit(1);
+                },
                 "h" => con.help(),
                 "r" => {
                     if self.cfg.is_64bits {
